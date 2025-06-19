@@ -12,7 +12,6 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       WORKSPACE: ${{ github.workspace }}
-      builddate: ${{ steps.date.outputs.date }}
       KERNEL_NAME: Nethunter_kernel_samsung_dm3q
       KERNEL_REPO: "https://github.com/MK-986123/Nethunter_kernel_samsung_dm3q.git"
       KERNEL_BRANCH: "WIP"
@@ -23,22 +22,24 @@ jobs:
       release: true
     steps:
       - name: "Get build date"
-        id: date
-        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_ENV
+        run: echo "builddate=$(date +'%Y%m%d')" >> $GITHUB_ENV
 
       - name: "Install prerequisites"
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential bc flex bison libssl-dev curl git zip ftp gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi lftp zstd wget libfl-dev python2 python3 libarchive-tools libelf-dev libz-dev binutils-dev
+          sudo apt-get install -y build-essential bc flex bison libssl-dev curl git zip ftp gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi lftp zstd wget libfl-dev python2 python3 libarchive-tools libelf-dev
+
+      - name: "Prepare output directory"
+        run: mkdir -p "${{ env.OUT_DIR }}"
 
       - name: "Setup Anykernel3"
         run: |
-          git clone --recursive --depth=1 -j $(nproc) --branch master https://github.com/osm0sis/AnyKernel3 AnyKernel3
+          git clone --recursive --depth=1 -j"$(nproc)" --branch master https://github.com/osm0sis/AnyKernel3 AnyKernel3
           echo "Setup Anykernel3 => (https://github.com/osm0sis/AnyKernel3)"
 
       - name: "Clone kernel source"
         run: |
-          git clone --recursive --depth=1 -j $(nproc) --branch $KERNEL_BRANCH $KERNEL_REPO $KERNEL_NAME
+          git clone --recursive --depth=1 -j"$(nproc)" --branch $KERNEL_BRANCH $KERNEL_REPO $KERNEL_NAME
           echo "Clone kernel source => ($KERNEL_REPO)"
 
       - name: "Get toolchains"
@@ -46,20 +47,16 @@ jobs:
           git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchains/proton-clang
           echo "Toolchains setup complete."
 
-      - name: "Set args"
+      - name: "Set build args"
         id: generate-args
-        env:
-          THREAD: $(nproc --all)
         run: |
-          ARCH=arm64
-          CC=toolchains/proton-clang/bin/clang
-          args="-j${{ env.THREAD }} O=${{ env.OUT_DIR }} ARCH=$ARCH CC=${{ env.WORKSPACE }}/$CC"
-          echo "args=$args" >> $GITHUB_OUTPUT
+          echo "THREAD=$(nproc --all)" >> $GITHUB_ENV
+          echo "arch=arm64" >> $GITHUB_ENV
+          echo "CC=toolchains/proton-clang/bin/clang" >> $GITHUB_ENV
+          echo "args=-j$(nproc --all) O=${{ env.OUT_DIR }} ARCH=arm64 CC=${{ github.workspace }}/toolchains/proton-clang/bin/clang" >> $GITHUB_ENV
 
       - name: "Update KernelSU"
         working-directory: ${{ env.KERNEL_NAME }}
-        env:
-          arch: arm64
         if: ${{ env.withKernelSU == 'true' }}
         run: |
           if [ -d "./KernelSU" ]; then
@@ -69,23 +66,18 @@ jobs:
             rm -rf "./drivers/kernelsu"
           fi
           curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s main
-          echo -e "CONFIG_KPROBES=y" >> arch/${{ env.arch }}/configs/${{ env.DEFCONFIG_NAME }}
-          echo -e "CONFIG_HAVE_KPROBES=y" >> arch/${{ env.arch }}/configs/${{ env.DEFCONFIG_NAME }}
-          echo -e "CONFIG_KPROBE_EVENTS=y" >> arch/${{ env.arch }}/configs/${{ env.DEFCONFIG_NAME }}
-          cat arch/${{ env.arch }}/configs/${{ env.DEFCONFIG_NAME }}
+          echo -e "CONFIG_KPROBES=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo -e "CONFIG_HAVE_KPROBES=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          echo -e "CONFIG_KPROBE_EVENTS=y" >> arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
+          cat arch/arm64/configs/${{ env.DEFCONFIG_NAME }}
 
       - name: "Make defconfig"
         working-directory: ${{ env.KERNEL_NAME }}
-        env:
-          args: ${{ steps.generate-args.outputs.args }}
-          arch: arm64
         run: |
-          make ${{ env.args }} ${{ env.DEFCONFIG_NAME }}
+          make $args $DEFCONFIG_NAME
 
       - name: "Build kernel"
         working-directory: ${{ env.KERNEL_NAME }}
-        env:
-          args: ${{ steps.generate-args.outputs.args }}
         run: |
           make $args
 
@@ -124,12 +116,11 @@ jobs:
       - name: "Pack AnyKernel3.zip"
         if: ${{ env.useAnykernel == 'true' }}
         env:
-          arch: arm64
           anykernel: "${{ env.WORKSPACE }}/${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}_${{ env.builddate }}"
         run: |
           ls -al
-          if [ -e "${{ env.OUT_DIR }}/arch/${{ env.arch }}/boot/Image.gz-dtb" ]; then
-            cp -f ${{ env.OUT_DIR }}/arch/${{ env.arch }}/boot/Image.gz-dtb ./AnyKernel3/
+          if [ -e "${{ env.OUT_DIR }}/arch/arm64/boot/Image.gz-dtb" ]; then
+            cp -f ${{ env.OUT_DIR }}/arch/arm64/boot/Image.gz-dtb ./AnyKernel3/
           fi
           cd AnyKernel3/
           zip -q -r "${{ env.anykernel }}.zip" *
