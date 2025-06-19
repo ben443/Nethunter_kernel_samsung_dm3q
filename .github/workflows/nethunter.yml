@@ -82,7 +82,7 @@ jobs:
           make $args
 
       - name: "Upload Image"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Image-${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}-${{ env.builddate }}
           path: ${{ env.OUT_DIR }}/arch/arm64/boot/Image
@@ -90,7 +90,7 @@ jobs:
         continue-on-error: true
 
       - name: "Upload Image.gz"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Image.gz-${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}-${{ env.builddate }}
           path: ${{ env.OUT_DIR }}/arch/arm64/boot/Image.gz
@@ -98,7 +98,7 @@ jobs:
         continue-on-error: true
 
       - name: "Upload dtb"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dtb-${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}-${{ env.builddate }}
           path: ${{ env.OUT_DIR }}/arch/arm64/boot/dtb
@@ -106,7 +106,7 @@ jobs:
         continue-on-error: true
 
       - name: "Upload dtbo.img"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dtbo.img-${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}-${{ env.builddate }}
           path: ${{ env.OUT_DIR }}/arch/arm64/boot/dtbo.img
@@ -126,7 +126,7 @@ jobs:
           zip -q -r "${{ env.anykernel }}.zip" *
 
       - name: "Upload AnyKernel3 image"
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ env.useAnykernel == 'true' }}
         with:
           name: "${{ env.KERNEL_DEVICE }}-${{ env.KERNEL_NAME }}_${{ env.builddate }}"
